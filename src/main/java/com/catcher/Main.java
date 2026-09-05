@@ -1,11 +1,9 @@
 package com.catcher;
 
-import com.catcher.analyzer.ArchitectureViolationDetector;
 import com.catcher.analyzer.CircularDependencyDetector;
 import com.catcher.analyzer.ClassDetector;
-import com.catcher.builder.ArchitectureMapBuilder;
+import com.catcher.analyzer.DependencyDetector;
 import com.catcher.builder.CodeModelBuilder;
-import com.catcher.builder.DependencyGraphBuilder;
 import com.catcher.model.*;
 import com.catcher.parser.SourceParser;
 import com.catcher.scanner.ProjectScanner;
@@ -66,86 +64,13 @@ public class Main {
         printClasses("SERVICES", services);
         printClasses("REPOSITORIES", repositories);
 
-        ArchitectureMapBuilder architectureMapBuilder = new ArchitectureMapBuilder();
-        ArchitectureMap architectureMap = architectureMapBuilder.build(controllers, services, repositories);
+        DependencyDetector dependencyDetector = new DependencyDetector();
+        Map<JavaClass, Set<JavaClass>> dependencyGraph = dependencyDetector.detectDependencies(project.getClasses());
+        printDependencyGraph(dependencyGraph);
 
-        System.out.println();
-        System.out.println("ARCHITECTURE MAP");
-        System.out.println("------------------");
-
-        System.out.println();
-        System.out.println("Controllers");
-
-        for (JavaClass controller : architectureMap.getControllers()) {
-
-            System.out.println("  " + controller.getPackageName() + "." + controller.getName());
-        }
-
-        System.out.println();
-        System.out.println("Services");
-
-        for (JavaClass service : architectureMap.getServices()) {
-
-            System.out.println("  " + service.getPackageName() + "." + service.getName());
-        }
-
-        System.out.println();
-        System.out.println("Repositories");
-
-        for (JavaClass repository : architectureMap.getRepositories()) {
-
-            System.out.println("  " + repository.getPackageName() + "." + repository.getName());
-        }
-
-        System.out.println();
-        System.out.println("ARCHITECTURE VIOLATIONS");
-        System.out.println("------------------");
-
-        ArchitectureViolationDetector violationDetector = new ArchitectureViolationDetector();
-        Set<ArchitectureViolation> violations = violationDetector.detect(architectureMap);
-
-        if (violations.isEmpty()) {
-
-            System.out.println("No architecture violations found.");
-
-        }
-        else {
-
-            for (ArchitectureViolation violation : violations) {
-
-                System.out.println(violation.getSourceClass() + " -> " + violation.getTargetClass());
-                System.out.println("  " + violation.getMessage());
-                System.out.println();
-            }
-        }
-
-        DependencyGraphBuilder dependencyGraphBuilder = new DependencyGraphBuilder();
-        DependencyGraph dependencyGraph = dependencyGraphBuilder.build(project.getClasses());
-
-
-        System.out.println();
-        System.out.println("DEPENDENCY GRAPH");
-        System.out.println("------------------");
-
-        Set<JavaClass> roots = new LinkedHashSet<>();
-
-        for (DependencyEdge edge : dependencyGraph.getEdges()) {
-            roots.add(edge.getSource());
-        }
-
-        Set<JavaClass> visited = new LinkedHashSet<>();
-
-        for (JavaClass root : roots) {
-
-            if (visited.contains(root)) {
-                continue;
-            }
-
-            printDependencyTree(root, dependencyGraph, "", visited);
-
-            System.out.println();
-        }
-
+        CircularDependencyDetector circularDependencyDetector = new  CircularDependencyDetector();
+        Set<List<JavaClass>> cycles = circularDependencyDetector.detectCircularDependencies(dependencyGraph);
+        printCircularDependencies(cycles);
     }
 
     private static void printClasses(String title, Set<JavaClass> classes) {
@@ -160,49 +85,54 @@ public class Main {
         }
     }
 
-    private static void printDependencyTree(JavaClass current, DependencyGraph graph, String prefix, Set<JavaClass> visited) {
+    private static void printDependencyGraph(Map<JavaClass, Set<JavaClass>> dependencyGraph) {
 
-        System.out.println(prefix + current.getName());
+        System.out.println();
+        System.out.println("DEPENDENCY GRAPH");
+        System.out.println("------------------");
 
-        if (!visited.add(current)) {
+        for (Map.Entry<JavaClass, Set<JavaClass>> entry : dependencyGraph.entrySet()) {
+
+            JavaClass source = entry.getKey();
+
+            System.out.println(source.getPackageName() + "." + source.getName());
+
+            for (JavaClass dependency : entry.getValue()) {
+
+                System.out.println("    -> " + dependency.getPackageName() + "." + dependency.getName()
+                );
+            }
+        }
+    }
+
+    private static void printCircularDependencies(Set<List<JavaClass>> cycles) {
+
+        System.out.println();
+        System.out.println("CIRCULAR DEPENDENCIES");
+        System.out.println("------------------");
+
+        if (cycles.isEmpty()) {
+
+            System.out.println("No circular dependencies found.");
             return;
         }
 
-        List<DependencyEdge> children = new ArrayList<>();
+        for (List<JavaClass> cycle : cycles) {
 
-        for (DependencyEdge edge : graph.getEdges()) {
+            for (int i = 0; i < cycle.size(); i++) {
 
-            if (edge.getSource() == current) {
-                children.add(edge);
+                JavaClass javaClass = cycle.get(i);
+
+                System.out.print(
+                        javaClass.getPackageName() + "." + javaClass.getName()
+                );
+
+                if (i < cycle.size() - 1) {
+                    System.out.print(" -> ");
+                }
             }
+
+            System.out.println();
         }
-
-        for (int i = 0; i < children.size(); i++) {
-
-            DependencyEdge edge = children.get(i);
-
-            boolean last = i == children.size() - 1;
-
-            String branch = last
-                    ? "\\--> "
-                    : "|--> ";
-
-            String childPrefix = last
-                    ? "     "
-                    : "|    ";
-
-            JavaClass target = edge.getTarget();
-
-            System.out.print(prefix + branch);
-
-            if (visited.contains(target)) {
-                System.out.println(target.getName());
-            }
-            else {
-                printDependencyTree(target, graph, prefix + childPrefix, visited);
-            }
-        }
-
-        visited.remove(current);
     }
 }

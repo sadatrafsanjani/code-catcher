@@ -1,80 +1,73 @@
 package com.catcher.analyzer;
 
-import com.catcher.model.DependencyEdge;
-import com.catcher.model.DependencyGraph;
 import com.catcher.model.JavaClass;
+
 import java.util.*;
 
 public class CircularDependencyDetector {
 
-    public Set<List<JavaClass>> detect(DependencyGraph graph) {
+    public Set<List<JavaClass>> detectCircularDependencies(Map<JavaClass, Set<JavaClass>> dependencyGraph) {
 
         Set<List<JavaClass>> cycles = new LinkedHashSet<>();
-        Set<JavaClass> classes = new LinkedHashSet<>();
 
-        for (DependencyEdge edge : graph.getEdges()) {
+        Set<JavaClass> visited = new HashSet<>();
+        Set<JavaClass> currentPath = new LinkedHashSet<>();
 
-            classes.add(edge.getSource());
-            classes.add(edge.getTarget());
-        }
+        for (JavaClass javaClass : dependencyGraph.keySet()) {
 
-        for (JavaClass start : classes) {
-
-            List<JavaClass> path = new ArrayList<>();
-            Set<JavaClass> visited = new HashSet<>();
-            findCycles(start, start, graph, path, visited, cycles);
+            detectCycle(
+                    javaClass,
+                    dependencyGraph,
+                    visited,
+                    currentPath,
+                    new ArrayList<>(),
+                    cycles
+            );
         }
 
         return cycles;
     }
 
-    private void findCycles(JavaClass current, JavaClass start, DependencyGraph graph, List<JavaClass> path, Set<JavaClass> visited, Set<List<JavaClass>> cycles) {
+    private void detectCycle(JavaClass current, Map<JavaClass, Set<JavaClass>> dependencyGraph, Set<JavaClass> visited, Set<JavaClass> currentPath, List<JavaClass> path, Set<List<JavaClass>> cycles) {
 
-        path.add(current);
+        if (currentPath.contains(current)) {
+
+            int cycleStart = path.indexOf(current);
+
+            if (cycleStart >= 0) {
+
+                List<JavaClass> cycle = new ArrayList<>(path.subList(cycleStart, path.size()));
+                cycle.add(current);
+                cycles.add(cycle);
+            }
+
+            return;
+        }
+
+        if (visited.contains(current)) {
+            return;
+        }
+
         visited.add(current);
+        currentPath.add(current);
+        path.add(current);
 
-        for (DependencyEdge edge : graph.getEdges()) {
+        Set<JavaClass> dependencies =
+                dependencyGraph.getOrDefault(current, Collections.emptySet());
 
-            if (edge.getSource() != current) {
-                continue;
-            }
+        for (JavaClass dependency : dependencies) {
 
-            JavaClass next = edge.getTarget();
-
-            if (next == start && path.size() > 1) {
-
-                List<JavaClass> cycle = new ArrayList<>(path);
-
-                if (!containsEquivalentCycle(cycles, cycle)) {
-                    cycles.add(cycle);
-                }
-
-                continue;
-            }
-
-            if (visited.contains(next)) {
-                continue;
-            }
-
-            findCycles(next, start, graph, path, visited, cycles);
+            detectCycle(
+                    dependency,
+                    dependencyGraph,
+                    visited,
+                    currentPath,
+                    path,
+                    cycles
+            );
         }
 
         path.remove(path.size() - 1);
-        visited.remove(current);
-    }
-
-    private boolean containsEquivalentCycle(Set<List<JavaClass>> cycles, List<JavaClass> candidate) {
-
-        Set<JavaClass> candidateSet = new HashSet<>(candidate);
-
-        for (List<JavaClass> cycle : cycles) {
-
-            if (cycle.size() == candidate.size() && new HashSet<>(cycle).equals(candidateSet)) {
-
-                return true;
-            }
-        }
-
-        return false;
+        currentPath.remove(current);
     }
 }
