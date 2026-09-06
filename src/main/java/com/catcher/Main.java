@@ -1,21 +1,19 @@
 package com.catcher;
 
-import com.catcher.analyzer.CircularDependencyDetector;
-import com.catcher.analyzer.ClassDetector;
-import com.catcher.analyzer.DependencyDetector;
+import com.catcher.analyzer.*;
 import com.catcher.builder.CodeModelBuilder;
-import com.catcher.model.*;
 import com.catcher.parser.SourceParser;
 import com.catcher.scanner.ProjectScanner;
 import com.github.javaparser.ast.CompilationUnit;
 import java.nio.file.Path;
+import com.catcher.model.*;
 import java.util.*;
 
 public class Main {
 
     public static void main(String[] args) {
 
-        Path projectPath = Path.of("E:\\sandbox\\E-commerce-project-springBoot");
+        Path projectPath = Path.of("E:\\sample");
 
         ProjectScanner scanner = new ProjectScanner();
         SourceParser parser = new SourceParser();
@@ -29,15 +27,9 @@ public class Main {
 
         for (Path file : javaFiles) {
 
-            try {
-
-                CompilationUnit compilationUnit = parser.parse(file);
-                JavaProject parsedProject = modelBuilder.build(compilationUnit, file);
-                parsedProject.getClasses().forEach(project::addClass);
-            }
-            catch (Exception e) {
-                System.out.println("Failed: " + file + " | " + e.getMessage());
-            }
+            CompilationUnit compilationUnit = parser.parse(file.toFile());
+            JavaProject parsedProject = modelBuilder.build(compilationUnit, file);
+            parsedProject.getClasses().forEach(project::addClass);
         }
 
         System.out.println("CODE CATCHER");
@@ -71,6 +63,14 @@ public class Main {
         CircularDependencyDetector circularDependencyDetector = new  CircularDependencyDetector();
         Set<List<JavaClass>> cycles = circularDependencyDetector.detectCircularDependencies(dependencyGraph);
         printCircularDependencies(cycles);
+
+        ArchitectureViolationDetector architectureViolationDetector = new ArchitectureViolationDetector();
+        Map<JavaClass, Set<JavaClass>> violations = architectureViolationDetector.detectArchitectureViolations(dependencyGraph);
+        printArchitectureViolations(violations);
+
+        CodeSmellDetector smellDetector = new CodeSmellDetector();
+        Map<JavaClass, Set<String>> smells = smellDetector.detect(project.getClasses());
+        printCodeSmells(smells);
     }
 
     private static void printClasses(String title, Set<JavaClass> classes) {
@@ -99,8 +99,7 @@ public class Main {
 
             for (JavaClass dependency : entry.getValue()) {
 
-                System.out.println("    -> " + dependency.getPackageName() + "." + dependency.getName()
-                );
+                System.out.println("    -> " + dependency.getPackageName() + "." + dependency.getName());
             }
         }
     }
@@ -133,6 +132,56 @@ public class Main {
             }
 
             System.out.println();
+        }
+    }
+
+    private static void printArchitectureViolations(Map<JavaClass, Set<JavaClass>> violations) {
+
+        System.out.println();
+        System.out.println("ARCHITECTURE VIOLATIONS");
+        System.out.println("------------------");
+
+        if (violations.isEmpty()) {
+
+            System.out.println("No architecture violations found.");
+            return;
+        }
+
+        for (Map.Entry<JavaClass, Set<JavaClass>> entry : violations.entrySet()) {
+
+            JavaClass source = entry.getKey();
+
+            System.out.println(source.getPackageName() + "." + source.getName());
+
+            for (JavaClass target : entry.getValue()) {
+
+                System.out.println("    -> " + target.getPackageName() + "." + target.getName());
+            }
+        }
+    }
+
+    private static void printCodeSmells(Map<JavaClass, Set<String>> smells) {
+
+        System.out.println();
+        System.out.println("CODE SMELLS");
+        System.out.println("------------------");
+
+        if (smells.isEmpty()) {
+
+            System.out.println("No code smells found.");
+            return;
+        }
+
+        for (Map.Entry<JavaClass, Set<String>> entry : smells.entrySet()) {
+
+            JavaClass javaClass = entry.getKey();
+
+            System.out.println(javaClass.getPackageName() + "." + javaClass.getName());
+
+            for (String smell : entry.getValue()) {
+
+                System.out.println("    ⚠ " + smell);
+            }
         }
     }
 }

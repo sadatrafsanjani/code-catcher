@@ -1,20 +1,25 @@
 package com.catcher.parser;
 
-import com.github.javaparser.ParseProblemException;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
-import java.io.IOException;
-import java.nio.file.Path;
+import java.io.File;
 
 public class SourceParser {
 
-    public CompilationUnit parse(Path sourceFile) {
+    public SourceParser() {
+
+        ParserConfiguration configuration = new ParserConfiguration();
+        configuration.setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
+        StaticJavaParser.setConfiguration(configuration);
+    }
+
+    public CompilationUnit parse(File file) {
 
         try {
-            return StaticJavaParser.parse(sourceFile);
+            return StaticJavaParser.parse(file);
         }
-        catch (ParseProblemException | IOException e) {
-
+        catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
