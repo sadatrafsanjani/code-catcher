@@ -18,6 +18,7 @@ java {
 
 dependencies {
     implementation("com.github.javaparser:javaparser-core:3.28.2")
+    implementation("com.github.javaparser:javaparser-core-serialization:3.28.2")
 
     compileOnly("org.projectlombok:lombok:1.18.46")
     annotationProcessor("org.projectlombok:lombok:1.18.46")

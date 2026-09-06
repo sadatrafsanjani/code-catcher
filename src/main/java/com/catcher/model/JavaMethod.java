@@ -11,15 +11,9 @@ public class JavaMethod {
 
     private String name;
     private String returnType;
-
+    private int complexity;
+    private int statementCount;
+    private String body;
     private Set<String> parameters = new LinkedHashSet<>();
     private Set<String> annotations = new LinkedHashSet<>();
-
-    public void addParameter(String parameter) {
-        parameters.add(parameter);
-    }
-
-    public void addAnnotation(String annotation) {
-        annotations.add(annotation);
-    }
 }
