@@ -45,6 +45,7 @@ public class CodeModelBuilder {
         method.setComplexity(calculateComplexity(declaration));
         method.setStatementCount(declaration.getBody().map(body -> body.findAll(Statement.class).size()).orElse(0));
         method.setBody(declaration.getBody().map(Object::toString).orElse(""));
+        method.setDeclaration(declaration);
 
         return method;
     }
@@ -62,8 +63,7 @@ public class CodeModelBuilder {
         complexity += declaration.findAll(SwitchEntry.class).size();
 
         complexity += declaration.findAll(BinaryExpr.class).stream().filter(
-                expression -> expression.getOperator() == BinaryExpr.Operator.AND || expression.getOperator() == BinaryExpr.Operator.OR
-                ).count();
+                expression -> expression.getOperator() == BinaryExpr.Operator.AND || expression.getOperator() == BinaryExpr.Operator.OR).count();
 
         return complexity;
     }
