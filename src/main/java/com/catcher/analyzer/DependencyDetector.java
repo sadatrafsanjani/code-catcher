@@ -10,7 +10,13 @@ public class DependencyDetector {
 
     public Map<JavaClass, Set<JavaClass>> detectDependencies(Set<JavaClass> classes) {
 
+        Map<String, JavaClass> classIndex = new LinkedHashMap<>();
         Map<JavaClass, Set<JavaClass>> dependencyGraph = new LinkedHashMap<>();
+
+        for (JavaClass javaClass : classes) {
+
+            classIndex.put(javaClass.getName(), javaClass);
+        }
 
         for (JavaClass javaClass : classes) {
 
@@ -18,12 +24,11 @@ public class DependencyDetector {
 
             for (String dependencyName : javaClass.getDependencies()) {
 
-                for (JavaClass dependencyClass : classes) {
+                JavaClass dependencyClass = classIndex.get(dependencyName);
 
-                    if (dependencyClass.getName().equals(dependencyName)) {
+                if (dependencyClass != null) {
 
-                        dependencies.add(dependencyClass);
-                    }
+                    dependencies.add(dependencyClass);
                 }
             }
 
