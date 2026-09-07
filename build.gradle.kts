@@ -36,3 +36,16 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.jar {
+    archiveFileName.set("code-catcher.jar")
+
+    manifest {
+        attributes["Main-Class"] = "com.catcher.Main"
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    from(configurations.runtimeClasspath.get().map {
+        if (it.isDirectory) it else zipTree(it)
+    })
+}
