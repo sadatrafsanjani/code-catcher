@@ -15,62 +15,24 @@ public class Main {
 
     public static void main(String[] args) {
 
-        Path projectPath = Path.of("E:\\sample");
+        System.out.println("=========== CODE CATCHER ===========\n");
 
-        ProjectScanner scanner = new ProjectScanner();
-        SourceParser parser = new SourceParser();
-        CodeModelBuilder modelBuilder = new CodeModelBuilder();
+        String projectPath = "E:\\sample";
+        Initializer initializer = new Initializer(projectPath);
+        initializer.initialize();
 
-        ClassDetector detector = new ClassDetector();
-        List<Path> javaFiles = scanner.scan(projectPath);
-        JavaProject project = new JavaProject();
+//        ClassDetector classDetector = new ClassDetector();
+//        Set<JavaClass> controllers = classDetector.detectControllers(project.getClasses());
+//        Set<JavaClass> services = classDetector.detectServices(project.getClasses());
+//        Set<JavaClass> repositories = classDetector.detectRepositories(project.getClasses());
 
-        for (Path file : javaFiles) {
+//        printClasses("CONTROLLERS", controllers);
+//        printClasses("SERVICES", services);
+//        printClasses("REPOSITORIES", repositories);
 
-            CompilationUnit compilationUnit = parser.parse(file.toFile());
-            JavaProject parsedProject = modelBuilder.build(compilationUnit, file);
-            parsedProject.getClasses().forEach(project::addClass);
-        }
-
-        System.out.println("CODE CATCHER");
-        System.out.println("------------------");
-        System.out.println("Project: " + projectPath);
-        System.out.println("Java files: " + javaFiles.size());
-        System.out.println("Classes: " + project.getClasses().size());
-        System.out.println();
-
-        for (JavaClass javaClass : project.getClasses()) {
-
-            System.out.println(javaClass.getPackageName() + "." + javaClass.getName());
-            System.out.println("Methods: " + javaClass.getMethods().size());
-            System.out.println("Annotations: " + javaClass.getAnnotations());
-            System.out.println("Dependencies: " + javaClass.getDependencies());
-            System.out.println();
-        }
-
-        Set<JavaClass> controllers = detector.detectControllers(project.getClasses());
-        Set<JavaClass> services = detector.detectServices(project.getClasses());
-        Set<JavaClass> repositories = detector.detectRepositories(project.getClasses());
-
-        printClasses("CONTROLLERS", controllers);
-        printClasses("SERVICES", services);
-        printClasses("REPOSITORIES", repositories);
-
-        AnalysisReportGenerator reportGenerator = new AnalysisReportGenerator();
-        AnalysisReport report = reportGenerator.generate(project.getClasses());
-        AnalysisReportPrinter printer = new AnalysisReportPrinter();
-        printer.print(report);
-    }
-
-    private static void printClasses(String title, Set<JavaClass> classes) {
-
-        System.out.println();
-        System.out.println(title);
-        System.out.println("------------------");
-
-        for (JavaClass javaClass : classes) {
-
-            System.out.println(javaClass.getPackageName() + "." + javaClass.getName());
-        }
+//        AnalysisReportGenerator reportGenerator = new AnalysisReportGenerator();
+//        AnalysisReport report = reportGenerator.generate(project.getClasses());
+//        AnalysisReportPrinter printer = new AnalysisReportPrinter();
+//        printer.print(report);
     }
 }

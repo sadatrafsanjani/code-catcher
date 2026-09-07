@@ -23,7 +23,13 @@ public class CodeModelBuilder {
 
         compilationUnit.findAll(ClassOrInterfaceDeclaration.class).forEach(classDeclaration -> {
 
-            JavaClass javaClass = new JavaClass(classDeclaration.getNameAsString(), packageName, sourceFile.toString(), classDeclaration.isInterface());
+            JavaClass javaClass = JavaClass.builder()
+                    .name(classDeclaration.getNameAsString())
+                    .packageName(packageName)
+                    .filePath(sourceFile.toAbsolutePath().toString())
+                    .interfaceType(classDeclaration.isInterface())
+                    .build();
+
             classDeclaration.getAnnotations().forEach(annotation -> javaClass.getAnnotations().add(annotation.getNameAsString()));
             classDeclaration.getMethods().forEach(method -> javaClass.getMethods().add(buildMethod(method)));
             classDeclaration.getFields().forEach(field -> field.getVariables().forEach(variable -> javaClass.getDependencies().add(variable.getType().asString())));
