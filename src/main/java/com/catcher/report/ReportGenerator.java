@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class AnalysisReportGenerator {
+public class ReportGenerator {
 
     public AnalysisReport generate(Set<JavaClass> classes) {
 

@@ -2,9 +2,12 @@ package com.catcher;
 
 import com.catcher.analyzer.ClassDetector;
 import com.catcher.builder.CodeModelBuilder;
+import com.catcher.model.AnalysisReport;
 import com.catcher.model.JavaClass;
 import com.catcher.model.JavaProject;
 import com.catcher.parser.SourceParser;
+import com.catcher.report.ReportGenerator;
+import com.catcher.report.AnalysisReportPrinter;
 import com.catcher.scanner.ProjectScanner;
 import com.github.javaparser.ast.CompilationUnit;
 import lombok.Data;
@@ -17,13 +20,14 @@ import java.util.Set;
 public class Initializer {
 
     private String project;
-    private Path path;
     private SourceParser sourceParser;
     private CodeModelBuilder modelBuilder;
     private ProjectScanner projectScanner;
     private List<Path> javaFiles;
     private JavaProject javaProject;
     private ClassDetector classDetector;
+    private ReportGenerator reportGenerator;
+    private AnalysisReportPrinter analysisReportPrinter;
 
     public Initializer(String project){
 
@@ -34,12 +38,13 @@ public class Initializer {
         this.javaFiles = new ArrayList<>();
         this.javaProject = new JavaProject();
         this.classDetector = new ClassDetector();
+        this.reportGenerator = new ReportGenerator();
+        this.analysisReportPrinter = new AnalysisReportPrinter();
     }
 
     public void initialize(){
 
-        path = Path.of(project);
-        List<Path> javaFiles = projectScanner.scan(path);
+        List<Path> javaFiles = projectScanner.scan(Path.of(project));
 
         for (Path file : javaFiles) {
 
@@ -50,6 +55,12 @@ public class Initializer {
 
         printFileCounts(javaFiles.size());
         printFileDescriptions(javaProject.getClasses());
+
+        printClasses("CONTROLLERS", classDetector.detectControllers(javaProject.getClasses()));
+        printClasses("SERVICES", classDetector.detectServices(javaProject.getClasses()));
+        printClasses("REPOSITORIES", classDetector.detectRepositories(javaProject.getClasses()));
+
+        printAnalysisReport(javaProject.getClasses());
     }
 
     private void printFileCounts(long total) {
@@ -78,7 +89,6 @@ public class Initializer {
         }
     }
 
-
     private void printClasses(String title, Set<JavaClass> classes) {
 
         System.out.println();
@@ -89,5 +99,10 @@ public class Initializer {
 
             System.out.println(javaClass.getPackageName() + "." + javaClass.getName());
         }
+    }
+
+    private void printAnalysisReport(Set<JavaClass> classes){
+
+        analysisReportPrinter.print(reportGenerator.generate(classes));
     }
 }
