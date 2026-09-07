@@ -2,7 +2,6 @@ package com.catcher;
 
 import com.catcher.analyzer.ClassDetector;
 import com.catcher.builder.CodeModelBuilder;
-import com.catcher.model.AnalysisReport;
 import com.catcher.model.JavaClass;
 import com.catcher.model.JavaProject;
 import com.catcher.parser.SourceParser;
@@ -10,24 +9,26 @@ import com.catcher.report.ReportGenerator;
 import com.catcher.report.AnalysisReportPrinter;
 import com.catcher.scanner.ProjectScanner;
 import com.github.javaparser.ast.CompilationUnit;
-import lombok.Data;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
-@Data
 public class Initializer {
 
-    private String project;
-    private SourceParser sourceParser;
-    private CodeModelBuilder modelBuilder;
-    private ProjectScanner projectScanner;
-    private List<Path> javaFiles;
-    private JavaProject javaProject;
-    private ClassDetector classDetector;
-    private ReportGenerator reportGenerator;
-    private AnalysisReportPrinter analysisReportPrinter;
+    private final String project;
+    private final SourceParser sourceParser;
+    private final CodeModelBuilder modelBuilder;
+    private final ProjectScanner projectScanner;
+    private final List<Path> javaFiles;
+    private final JavaProject javaProject;
+    private final ClassDetector classDetector;
+    private final ReportGenerator reportGenerator;
+    private final AnalysisReportPrinter analysisReportPrinter;
 
     public Initializer(String project){
 
@@ -46,12 +47,7 @@ public class Initializer {
 
         List<Path> javaFiles = projectScanner.scan(Path.of(project));
 
-        for (Path file : javaFiles) {
-
-            CompilationUnit compilationUnit = sourceParser.parse(file.toFile());
-            JavaProject parsedProject = modelBuilder.build(compilationUnit, file);
-            parsedProject.getClasses().forEach(javaProject::addClass);
-        }
+        parseJavaFiles(javaFiles);
 
         printFileCounts(javaFiles.size());
         printFileDescriptions(javaProject.getClasses());
@@ -104,5 +100,51 @@ public class Initializer {
     private void printAnalysisReport(Set<JavaClass> classes){
 
         analysisReportPrinter.print(reportGenerator.generate(classes));
+    }
+
+    private void parseJavaFiles(List<Path> javaFiles) {
+
+        int threadCount = Math.max(1, Runtime.getRuntime().availableProcessors());
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+        try {
+
+            List<Future<JavaProject>> futures = new ArrayList<>(javaFiles.size());
+
+            for (Path file : javaFiles) {
+
+                futures.add(executor.submit(() -> {
+
+                        CompilationUnit compilationUnit = sourceParser.parse(file.toFile());
+
+                        return modelBuilder.build(compilationUnit, file);
+                    })
+                );
+            }
+
+            for (Future<JavaProject> future : futures) {
+
+                try {
+
+                    JavaProject parsedProject = future.get();
+                    parsedProject.getClasses().forEach(javaProject::addClass);
+
+                }
+                catch (InterruptedException e) {
+
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Java source processing was interrupted.", e);
+                }
+                catch (ExecutionException e) {
+
+                    throw new RuntimeException("Failed to process Java source file.", e.getCause());
+                }
+            }
+
+        }
+        finally {
+
+            executor.shutdown();
+        }
     }
 }
