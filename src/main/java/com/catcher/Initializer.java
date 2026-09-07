@@ -10,9 +10,7 @@ import com.catcher.report.AnalysisReportPrinter;
 import com.catcher.scanner.ProjectScanner;
 import com.github.javaparser.ast.CompilationUnit;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,7 +22,6 @@ public class Initializer {
     private final SourceParser sourceParser;
     private final CodeModelBuilder modelBuilder;
     private final ProjectScanner projectScanner;
-    private final List<Path> javaFiles;
     private final JavaProject javaProject;
     private final ClassDetector classDetector;
     private final ReportGenerator reportGenerator;
@@ -36,7 +33,6 @@ public class Initializer {
         this.sourceParser = new SourceParser();
         this.modelBuilder = new CodeModelBuilder();
         this.projectScanner = new ProjectScanner();
-        this.javaFiles = new ArrayList<>();
         this.javaProject = new JavaProject();
         this.classDetector = new ClassDetector();
         this.reportGenerator = new ReportGenerator();
@@ -45,18 +41,30 @@ public class Initializer {
 
     public void initialize(){
 
-        List<Path> javaFiles = projectScanner.scan(Path.of(project));
+        long startTime = System.nanoTime();
 
-        parseJavaFiles(javaFiles);
+        List<Path> scannedFiles = projectScanner.scan(Path.of(project));
 
-        printFileCounts(javaFiles.size());
+        parseJavaFiles(scannedFiles);
+
+        printFileCounts(scannedFiles.size());
+
         printFileDescriptions(javaProject.getClasses());
 
-        printClasses("CONTROLLERS", classDetector.detectControllers(javaProject.getClasses()));
-        printClasses("SERVICES", classDetector.detectServices(javaProject.getClasses()));
-        printClasses("REPOSITORIES", classDetector.detectRepositories(javaProject.getClasses()));
+        Map<String, Set<JavaClass>> detected = classDetector.detect(javaProject.getClasses());
+        printClasses("CONTROLLERS", detected.get("CONTROLLERS"));
+        printClasses("SERVICES", detected.get("SERVICES"));
+        printClasses("REPOSITORIES", detected.get("REPOSITORIES"));
+        printClasses("ENTITIES", detected.get("ENTITIES"));
+        printClasses("COMPONENTS", detected.get("COMPONENTS"));
+        printClasses("CONFIGURATIONS", detected.get("CONFIGURATIONS"));
 
         printAnalysisReport(javaProject.getClasses());
+
+        long endTime = System.nanoTime();
+        double elapsedSeconds = (endTime - startTime) / 1_000_000_000.0;
+
+        System.out.printf("%nTotal inspection time: %.3f seconds%n", elapsedSeconds);
     }
 
     private void printFileCounts(long total) {
@@ -88,12 +96,25 @@ public class Initializer {
     private void printClasses(String title, Set<JavaClass> classes) {
 
         System.out.println();
-        System.out.println(title);
-        System.out.println("------------------");
+        System.out.println(title + "\n ------------------");
+
+        Map<String, Set<JavaClass>> classesByPackage = new LinkedHashMap<>();
 
         for (JavaClass javaClass : classes) {
 
-            System.out.println(javaClass.getPackageName() + "." + javaClass.getName());
+            classesByPackage.computeIfAbsent(javaClass.getPackageName(), key -> new LinkedHashSet<>()).add(javaClass);
+        }
+
+        for (Map.Entry<String, Set<JavaClass>> entry : classesByPackage.entrySet()) {
+
+            System.out.println(entry.getKey());
+
+            for (JavaClass javaClass : entry.getValue()) {
+
+                System.out.println("--> " + javaClass.getName());
+            }
+
+            System.out.println();
         }
     }
 
@@ -102,16 +123,16 @@ public class Initializer {
         analysisReportPrinter.print(reportGenerator.generate(classes));
     }
 
-    private void parseJavaFiles(List<Path> javaFiles) {
+    private void parseJavaFiles(List<Path> scannedFiles) {
 
         int threadCount = Math.max(1, Runtime.getRuntime().availableProcessors());
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
         try {
 
-            List<Future<JavaProject>> futures = new ArrayList<>(javaFiles.size());
+            List<Future<JavaProject>> futures = new ArrayList<>(scannedFiles.size());
 
-            for (Path file : javaFiles) {
+            for (Path file : scannedFiles) {
 
                 futures.add(executor.submit(() -> {
 

@@ -142,7 +142,7 @@ public class AnalysisReportPrinter {
 
             for (String smell : entry.getValue()) {
 
-                System.out.println("    ⚠ " + smell);
+                System.out.println("    ! " + smell);
             }
         }
     }
@@ -167,7 +167,7 @@ public class AnalysisReportPrinter {
 
             for (String violation : entry.getValue()) {
 
-                System.out.println("    ⚠ " + violation);
+                System.out.println("    ! " + violation);
             }
         }
     }
